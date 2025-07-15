@@ -4,20 +4,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public class StreamGTCRNProcessor : IDisposable
+public class GtcrnProcessor : IDisposable
 {
     private readonly InferenceSession _session;
-    private readonly STFTProcessor _stftProcessor;
+    private readonly Stftprocessor _stftProcessor;
 
     private DenseTensor<float> _convCache;
     private DenseTensor<float> _traCache;
     private DenseTensor<float> _interCache;
 
-    private readonly int _batchSize = 1;
-    private readonly int _hopLength = 256;
-    private readonly int _numBins = 257;  // 512/2 + 1
-
-    public StreamGTCRNProcessor(string modelPath)
+    public GtcrnProcessor(string modelPath)
     {
         // 初始化ONNX Runtime会话
         var options = new SessionOptions
@@ -28,7 +24,7 @@ public class StreamGTCRNProcessor : IDisposable
         _session = new InferenceSession(modelPath, options);
 
         // 初始化STFT处理器
-        _stftProcessor = new STFTProcessor();
+        _stftProcessor = new Stftprocessor();
 
         // 初始化缓存
         ResetState();
@@ -75,16 +71,6 @@ public class StreamGTCRNProcessor : IDisposable
 
         // 5. 计算ISTFT
         return _stftProcessor.ComputeISTFT(enhanced);
-    }
-
-    private int CalculateBufferSize(int[] dimensions)
-    {
-        int size = 1;
-        foreach (var dim in dimensions)
-        {
-            size *= dim;
-        }
-        return size;
     }
 
     public void Dispose()

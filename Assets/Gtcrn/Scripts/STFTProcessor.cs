@@ -4,7 +4,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Linq;
 
-public class STFTProcessor
+public class Stftprocessor
 {
     private readonly int _nfft;
     private readonly int _hopLength;
@@ -13,7 +13,7 @@ public class STFTProcessor
     private readonly int _numBins;
     private float[] _previousFrame;
 
-    public STFTProcessor(int nfft = 512, int hopLength = 256)
+    public Stftprocessor(int nfft = 512, int hopLength = 256)
     {
         _nfft = nfft;
         _hopLength = hopLength;
