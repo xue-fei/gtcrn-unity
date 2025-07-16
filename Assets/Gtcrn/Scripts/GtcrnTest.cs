@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class GtcrnTest : MonoBehaviour
 {
-    GtcrnProcessor gtcrn;
+    GtcrnStream gtcrn;
     string modelPath;
     List<float> result = new List<float>();
 
@@ -15,22 +15,25 @@ public class GtcrnTest : MonoBehaviour
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
         float[] audioData = ReadWav(Application.streamingAssetsPath + "/mix.wav");
 
-        gtcrn = new GtcrnProcessor(modelPath);
+        gtcrn = new GtcrnStream(modelPath);
 
-        int blockSize = 256;
-        int totalBlocks = (audioData.Length + blockSize - 1) / blockSize;
-        for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++)
+        Loom.RunAsync(() =>
         {
-            float[] block = new float[blockSize];
-            int startIndex = blockIndex * blockSize;
-            int elementsToCopy = Math.Min(blockSize, audioData.Length - startIndex);
-            if (elementsToCopy > 0)
+            int blockSize = 256;
+            int totalBlocks = (audioData.Length + blockSize - 1) / blockSize;
+            for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++)
             {
-                Array.Copy(audioData, startIndex, block, 0, elementsToCopy);
+                float[] block = new float[blockSize];
+                int startIndex = blockIndex * blockSize;
+                int elementsToCopy = Math.Min(blockSize, audioData.Length - startIndex);
+                if (elementsToCopy > 0)
+                {
+                    Array.Copy(audioData, startIndex, block, 0, elementsToCopy);
+                }
+                float[] processedFrame = gtcrn.ProcessFrame(block);
+                result.AddRange(processedFrame);
             }
-            float[] processedFrame = gtcrn.ProcessFrame(block);
-            result.AddRange(processedFrame);
-        }
+        });
     }
 
     // Update is called once per frame

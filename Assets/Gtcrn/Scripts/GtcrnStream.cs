@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public class GtcrnProcessor : IDisposable
+public class GtcrnStream : IDisposable
 {
     private readonly InferenceSession _session;
     private readonly Stftprocessor _stftProcessor;
@@ -13,7 +13,7 @@ public class GtcrnProcessor : IDisposable
     private DenseTensor<float> _traCache;
     private DenseTensor<float> _interCache;
 
-    public GtcrnProcessor(string modelPath)
+    public GtcrnStream(string modelPath)
     {
         // 初始化ONNX Runtime会话
         var options = new SessionOptions
