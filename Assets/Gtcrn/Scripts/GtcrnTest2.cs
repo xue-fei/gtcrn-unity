@@ -4,13 +4,14 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
 
 public class GtcrnTest2 : MonoBehaviour
 {
-    string simpleModelPath = "your_model_name.onnx";
-    string outputPath = "test_wavs/enh_onnx.wav";
+    string simpleModelPath;
+    string outputPath;
     int sampleRate = 16000;
     int n_fft = 512;
     int hop_length = 256;
@@ -23,70 +24,93 @@ public class GtcrnTest2 : MonoBehaviour
         outputPath = Application.streamingAssetsPath + "/result.wav";
 
         float[] rawAudio = Util.ReadWav(Application.streamingAssetsPath + "/mix.wav");
-        var window = Window.Hann(win_length).Select(x => (float)Math.Sqrt(x)).ToArray();
-        (float[,,] stftResult, int frames) = ComputeSTFT(rawAudio, n_fft, hop_length, win_length, window);
-        // 3. 初始化ONNX推理会话
+        float[] hanningWin = HanningWindow(win_length, 0.5f);
+        (float[,,] x_stft, int numTimeFrames) = STFT(rawAudio, n_fft, hop_length, win_length, hanningWin);
+
+        int numFreqBins = x_stft.GetLength(0);
+        int numRealImagParts = x_stft.GetLength(2);
+        int batchSize = 1;
+        float[] y = new float[rawAudio.Length];
+        Array.Copy(rawAudio, y, rawAudio.Length);
+
         var session = new InferenceSession(simpleModelPath);
 
-        var convCache = new DenseTensor<float>(new[] { 2, 1, 16, 16, 33 });
-        var traCache = new DenseTensor<float>(new[] { 2, 3, 1, 1, 16 });
-        var interCache = new DenseTensor<float>(new[] { 2, 1, 33, 16 });
+        var convCacheTensor = new DenseTensor<float>(new[] { 2, 1, 16, 16, 33 });
+        var traCacheTensor = new DenseTensor<float>(new[] { 2, 3, 1, 1, 16 });
+        var interCacheTensor = new DenseTensor<float>(new[] { 2, 1, 33, 16 });
+        convCacheTensor.Fill(0.0f);
+        traCacheTensor.Fill(0.0f);
+        interCacheTensor.Fill(0.0f);
 
-        var outputs = new List<float[,,]>();
+        List<float[,,]> outputsList = new List<float[,,]>();
+        List<double> T_list = new List<double>();
+        Stopwatch stopwatch = new Stopwatch();
 
-        for (int i = 0; i < frames; i++)
+        for (int i = 0; i < numTimeFrames; i++)
         {
-            // 准备当前帧
-            var input = new DenseTensor<float>(new[] { 1, 257, 1, 2 });
-            for (int j = 0; j < 257; j++)
-            {
-                input[0, j, 0, 0] = stftResult[i, j, 0]; // 实部
-                input[0, j, 0, 1] = stftResult[i, j, 1]; // 虚部
-            }
+            stopwatch.Restart();
 
-            // 准备输入
+            var mixInputTensor = new DenseTensor<float>(new[] { batchSize, numFreqBins, 1, numRealImagParts });
+            for (int b = 0; b < batchSize; b++)
+            {
+                for (int k = 0; k < numFreqBins; k++)
+                {
+                    for (int r_i = 0; r_i < numRealImagParts; r_i++)
+                    {
+                        mixInputTensor[b, k, 0, r_i] = x_stft[k, i, r_i];
+                    }
+                }
+            }
             var inputs = new List<NamedOnnxValue>
                 {
-                    NamedOnnxValue.CreateFromTensor("mix", input),
-                    NamedOnnxValue.CreateFromTensor("conv_cache", convCache),
-                    NamedOnnxValue.CreateFromTensor("tra_cache", traCache),
-                    NamedOnnxValue.CreateFromTensor("inter_cache", interCache)
+                    NamedOnnxValue.CreateFromTensor("mix", mixInputTensor),
+                    NamedOnnxValue.CreateFromTensor("conv_cache", convCacheTensor),
+                    NamedOnnxValue.CreateFromTensor("tra_cache", traCacheTensor),
+                    NamedOnnxValue.CreateFromTensor("inter_cache", interCacheTensor)
                 };
 
-            // 推理
             using (var results = session.Run(inputs))
             {
-                var enh = results.First(t => t.Name == "enh").AsTensor<float>();
-                convCache = (DenseTensor<float>)results.First(t => t.Name == "conv_cache_out").AsTensor<float>();
-                traCache = (DenseTensor<float>)results.First(t => t.Name == "tra_cache_out").AsTensor<float>();
-                interCache = (DenseTensor<float>)results.First(t => t.Name == "inter_cache_out").AsTensor<float>();
-
-                // 存储输出
-                var frameOutput = new float[1, 257, 2];
-                for (int j = 0; j < 257; j++)
+                stopwatch.Stop();
+                T_list.Add(stopwatch.Elapsed.TotalSeconds);
+                var outITensor = results.First().AsTensor<float>();
+                var currentOutI = new float[outITensor.Dimensions[1], outITensor.Dimensions[2], outITensor.Dimensions[3]];
+                for (int k = 0; k < outITensor.Dimensions[1]; k++)
                 {
-                    frameOutput[0, j, 0] = enh[0, j, 0, 0];
-                    frameOutput[0, j, 1] = enh[0, j, 0, 1];
+                    for (int f = 0; f < outITensor.Dimensions[2]; f++)
+                    {
+                        for (int r_i = 0; r_i < outITensor.Dimensions[3]; r_i++)
+                        {
+                            currentOutI[k, f, r_i] = outITensor[0, k, f, r_i]; // Batch 0
+                        }
+                    }
                 }
-                outputs.Add(frameOutput);
+                outputsList.Add(currentOutI);
+
+                convCacheTensor = (DenseTensor<float>)results[1].AsTensor<float>();
+                traCacheTensor = (DenseTensor<float>)results[2].AsTensor<float>();
+                interCacheTensor = (DenseTensor<float>)results[3].AsTensor<float>();
             }
         }
 
-        // 6. 合并所有帧
-        var allFrames = new float[frames, 257, 2];
-        for (int i = 0; i < frames; i++)
+        int finalNumFreqBins = outputsList[0].GetLength(0);
+        int finalNumRealImag = outputsList[0].GetLength(2);
+
+        float[,,] finalOutputs = new float[finalNumFreqBins, numTimeFrames, finalNumRealImag];
+        for (int i = 0; i < numTimeFrames; i++)
         {
-            for (int j = 0; j < 257; j++)
+            var currentOutI = outputsList[i];
+            for (int k = 0; k < finalNumFreqBins; k++)
             {
-                allFrames[i, j, 0] = outputs[i][0, j, 0];
-                allFrames[i, j, 1] = outputs[i][0, j, 1];
+                for (int r_i = 0; r_i < finalNumRealImag; r_i++)
+                {
+                    finalOutputs[k, i, r_i] = currentOutI[k, 0, r_i];
+                }
             }
         }
+        float[] enhanced = ISTFT(finalOutputs, n_fft, hop_length, win_length, hanningWin);
 
-        // 7. 计算ISTFT
-        float[] enhancedAudio = ComputeISTFT(allFrames, n_fft, hop_length, win_length, window);
-        // 转换过程代码可能有误，此处把音量放大100倍
-        Util.SaveClip(1, 16000, enhancedAudio, outputPath, 100f);
+        Util.SaveClip(1, 16000, enhanced, outputPath);
     }
 
     // Update is called once per frame
@@ -95,69 +119,103 @@ public class GtcrnTest2 : MonoBehaviour
 
     }
 
-    static (float[,,] result, int frames) ComputeSTFT(float[] audio, int n_fft, int hop, int win, float[] window)
+    public static float[] HanningWindow(int length, float power)
     {
-        int frames = (audio.Length - n_fft) / hop + 1;
-        var stft = new float[frames, n_fft / 2 + 1, 2]; // [frame, freq, real/imag]
-
-        for (int i = 0; i < frames; i++)
+        float[] window = new float[length];
+        for (int i = 0; i < length; i++)
         {
-            // 提取帧并加窗
-            var frame = new float[n_fft];
-            Array.Copy(audio, i * hop, frame, 0, Math.Min(n_fft, audio.Length - i * hop));
-            for (int j = 0; j < n_fft; j++) frame[j] *= window[j];
-
-            // 计算FFT (使用MathNet.Numerics)
-            var complexFrame = new Complex32[n_fft];
-            for (int j = 0; j < n_fft; j++)
-            {
-                complexFrame[j] = new Complex32(frame[j], 0);
-            }
-            Fourier.Forward(complexFrame, FourierOptions.Default);
-
-            // 存储结果（仅保留一半）
-            for (int j = 0; j <= n_fft / 2; j++)
-            {
-                stft[i, j, 0] = complexFrame[j].Real;
-                stft[i, j, 1] = complexFrame[j].Imaginary;
-            }
+            window[i] = (float)Math.Pow(0.5 * (1 - Math.Cos(2 * Math.PI * i / (length - 1))), power);
         }
-        return (stft, frames);
+        return window;
     }
 
-    static float[] ComputeISTFT(float[,,] stft, int n_fft, int hop, int win, float[] window)
+    public static (float[,,] result, int frames) STFT(float[] audio, int n_fft, int hop_length, int win_length, float[] window)
     {
-        int frames = stft.GetLength(0);
-        int outputLength = (frames - 1) * hop + n_fft;
-        var output = new float[outputLength];
-        var scale = window.Select(w => w * w).Sum(); // 用于归一化
-
-        for (int i = 0; i < frames; i++)
+        if (audio == null || audio.Length == 0)
         {
-            // 重建完整频谱
-            var fullSpectrum = new Complex32[n_fft];
-            for (int j = 0; j <= n_fft / 2; j++)
+            throw new ArgumentException("Audio signal cannot be null or empty.");
+        }
+        if (window.Length != win_length)
+        {
+            throw new ArgumentException("Window length must match win_length parameter.");
+        }
+        int numFreqBins = n_fft / 2 + 1;
+        int numFrames = (int)Math.Ceiling((double)(audio.Length - win_length) / hop_length) + 1;
+        if (audio.Length < win_length)
+        {
+            numFrames = 1;
+        }
+        float[,,] spectrogram = new float[numFreqBins, numFrames, 2];
+
+        Complex32[] fftBuffer = new Complex32[n_fft];
+
+        for (int frameIdx = 0; frameIdx < numFrames; frameIdx++)
+        {
+            int startIdx = frameIdx * hop_length;
+            Array.Clear(fftBuffer, 0, n_fft);
+            for (int i = 0; i < win_length; i++)
             {
-                fullSpectrum[j] = new Complex32(stft[i, j, 0], stft[i, j, 1]);
-                if (j > 0 && j < n_fft / 2)
+                if (startIdx + i < audio.Length)
                 {
-                    fullSpectrum[n_fft - j] = fullSpectrum[j].Conjugate();
+                    fftBuffer[i] = new Complex32(audio[startIdx + i] * window[i], 0);
+                }
+                else
+                {
+                    fftBuffer[i] = new Complex32(0, 0);
                 }
             }
+            Fourier.Forward(fftBuffer, FourierOptions.Default);
 
-            // 逆FFT
-            Fourier.Inverse(fullSpectrum, FourierOptions.Default);
+            for (int k = 0; k < numFreqBins; k++)
+            {
+                spectrogram[k, frameIdx, 0] = fftBuffer[k].Real;
+                spectrogram[k, frameIdx, 1] = fftBuffer[k].Imaginary;
+            }
+        }
+        return (spectrogram, numFrames);
+    }
 
-            // 加窗并重叠相加
-            int pos = i * hop;
+    public static float[] ISTFT(float[,,] stft, int n_fft, int hop_length, int win_length, float[] window)
+    {
+        int numFrames = stft.GetLength(1);
+        int numFreqBins = stft.GetLength(0);
+        int outputLength = (numFrames - 1) * hop_length + n_fft;
+        var outputSignal = new float[outputLength];
+        float[] windowSum = new float[outputLength];
+        Complex32[] fftBuffer = new Complex32[n_fft];
+        for (int frameIdx = 0; frameIdx < numFrames; frameIdx++)
+        {
+            Array.Clear(fftBuffer, 0, n_fft);
+            for (int j = 0; j < numFreqBins; j++)
+            {
+                fftBuffer[j] = new Complex32(stft[j, frameIdx, 0], stft[j, frameIdx, 1]);
+                if (j > 0 && j < n_fft / 2)
+                {
+                    fftBuffer[n_fft - j] = fftBuffer[j].Conjugate();
+                }
+            }
+            if (n_fft % 2 == 0 && numFreqBins > n_fft / 2)
+            {
+                fftBuffer[n_fft / 2] = new Complex32(stft[n_fft / 2, frameIdx, 0], stft[n_fft / 2, frameIdx, 1]);
+            }
+            Fourier.Inverse(fftBuffer, FourierOptions.Default);
+            int startIdx = frameIdx * hop_length;
             for (int j = 0; j < n_fft; j++)
             {
-                if (pos + j < output.Length)
+                if (startIdx + j < outputLength)
                 {
-                    output[pos + j] += fullSpectrum[j].Real * window[j] / scale;
+                    outputSignal[startIdx + j] += fftBuffer[j].Real * window[j];
+                    windowSum[startIdx + j] += window[j] * window[j];
                 }
             }
         }
-        return output;
-    } 
+        for (int i = 0; i < outputLength; i++)
+        {
+            if (windowSum[i] > 1e-6)
+            {
+                outputSignal[i] /= windowSum[i];
+            }
+        }
+        return outputSignal;
+    }
 }
