@@ -13,7 +13,7 @@ public class GtcrnTest : MonoBehaviour
     void Start()
     {
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
-        float[] audioData = Util.ReadWav(Application.streamingAssetsPath + "/mix.wav");
+        float[] audioData = Util.ReadWav(Application.dataPath + "/mix.wav");
 
         gtcrn = new GtcrnStream(modelPath);
 
@@ -46,7 +46,7 @@ public class GtcrnTest : MonoBehaviour
     {
         gtcrn.ResetState();
         gtcrn = null;
-        SaveClip(1, 16000, result.ToArray(), Application.streamingAssetsPath + "/result.wav");
+        SaveClip(1, 16000, result.ToArray(), Application.dataPath + "/result.wav");
     }
 
     void SaveClip(int channels, int frequency, float[] data, string filePath)

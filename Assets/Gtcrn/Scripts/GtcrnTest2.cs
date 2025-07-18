@@ -21,9 +21,9 @@ public class GtcrnTest2 : MonoBehaviour
     void Start()
     {
         simpleModelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
-        outputPath = Application.streamingAssetsPath + "/result.wav";
+        outputPath = Application.dataPath + "/result.wav";
 
-        float[] rawAudio = Util.ReadWav(Application.streamingAssetsPath + "/mix.wav");
+        float[] rawAudio = Util.ReadWav(Application.dataPath + "/mix.wav");
         float[] hanningWin = HanningWindow(win_length, 0.5f);
         (float[,,] x_stft, int numTimeFrames) = STFT(rawAudio, n_fft, hop_length, win_length, hanningWin);
 
@@ -124,7 +124,7 @@ public class GtcrnTest2 : MonoBehaviour
         float[] window = new float[length];
         for (int i = 0; i < length; i++)
         {
-            window[i] = (float)Math.Pow(0.5 * (1 - Math.Cos(2 * Math.PI * i / (length - 1))), power);
+            window[i] = (float)Math.Pow(0.5 * (1 - Math.Cos(2 * Math.PI * i / (float)(length - 1))), power);
         }
         return window;
     }
