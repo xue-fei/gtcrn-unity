@@ -2,11 +2,11 @@ using System.Collections.Generic;
 using uMicrophoneWebGL;
 using UnityEngine;
 
-public class Test2 : MonoBehaviour
+public class RealTest : MonoBehaviour
 {
     public AudioPlayer player;
     public MicrophoneWebGL microphoneWebGL;
-    GtcrnStream gtcrn;
+    GtcrnStreamNew gtcrn;
     string modelPath;
     Queue<float> audioData = new Queue<float>();
 
@@ -14,7 +14,7 @@ public class Test2 : MonoBehaviour
     void Start()
     {
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
-        gtcrn = new GtcrnStream(modelPath);
+        gtcrn = new GtcrnStreamNew(modelPath);
         microphoneWebGL.dataEvent.AddListener(OnData);
     }
 
@@ -24,7 +24,7 @@ public class Test2 : MonoBehaviour
 
     }
 
-    const int block = 256;
+    const int block = 512;
     float[] temp = new float[block];
 
     private void FixedUpdate()
