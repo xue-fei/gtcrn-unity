@@ -58,8 +58,8 @@ public class RealTest : MonoBehaviour
     private void OnDestroy()
     {
         Util.SaveClip(1, 16000, orginData.ToArray(),
-            Application.dataPath + "/orginData.wav");
+            Application.dataPath + "/zorgin.wav");
         Util.SaveClip(1, 16000, enhData.ToArray(),
-            Application.dataPath + "/enhData.wav");
+            Application.dataPath + "/zenh.wav");
     }
 }
