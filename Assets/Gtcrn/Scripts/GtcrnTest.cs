@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class GtcrnTest : MonoBehaviour
 {
-    GtcrnStreamNew gtcrn;
+    GtcrnStream gtcrn;
     string modelPath;
 
     // Start is called before the first frame update
@@ -11,7 +11,7 @@ public class GtcrnTest : MonoBehaviour
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
         float[] audioData = Util.ReadWav(Application.dataPath + "/mix.wav");
 
-        gtcrn = new GtcrnStreamNew(modelPath);
+        gtcrn = new GtcrnStream(modelPath);
         string resultPath = Application.dataPath + "/result.wav";
         Loom.RunAsync(() =>
         {

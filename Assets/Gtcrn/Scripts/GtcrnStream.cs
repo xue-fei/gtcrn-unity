@@ -5,7 +5,7 @@ using Microsoft.ML.OnnxRuntime;
 using System.Collections.Generic;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-public class GtcrnStreamNew : IDisposable
+public class GtcrnStream : IDisposable
 {
     private InferenceSession onnxSession;
     // STFT parameters
@@ -14,7 +14,7 @@ public class GtcrnStreamNew : IDisposable
     private const int WIN_LENGTH = 512;
     private const int SAMPLE_RATE = 16000;
 
-    public GtcrnStreamNew(string modelPath)
+    public GtcrnStream(string modelPath)
     {
         onnxSession = new InferenceSession(modelPath);
         UnityEngine.Debug.Log("init done");
