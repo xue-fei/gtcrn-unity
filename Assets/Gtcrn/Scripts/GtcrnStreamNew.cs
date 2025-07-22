@@ -42,16 +42,10 @@ public class GtcrnStreamNew : IDisposable
     private readonly Complex[] _fftBuffer;
     private readonly Complex[] _ifftBuffer;
 
-    // 输入输出名称
-    private static readonly string[] InputNames = { "mix", "conv_cache", "tra_cache", "inter_cache" };
-    private static readonly string[] OutputNames = { "enh", "conv_cache_out", "tra_cache_out", "inter_cache_out" };
-
     public GtcrnStreamNew(string modelPath)
     {
-        // 初始化ONNX会话
-        var sessionOptions = new SessionOptions();
-        sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-        _onnxSession = new InferenceSession(modelPath, sessionOptions);
+        // 初始化ONNX会话 
+        _onnxSession = new InferenceSession(modelPath);
 
         // 初始化ONNX缓存（与C的缓存形状一致）
         _convCache = new DenseTensor<float>(new[] { 2, 1, 16, 16, 33 });

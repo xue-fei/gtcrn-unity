@@ -8,13 +8,13 @@ public class RealTest : MonoBehaviour
     public MicrophoneWebGL microphoneWebGL;
     GtcrnStreamNew gtcrn;
     string modelPath;
-    Queue<float> audioData = new Queue<float>();
     List<float> orginData = new List<float>();
     List<float> enhData = new List<float>();
 
     // Start is called before the first frame update
     void Start()
     {
+        Application.targetFrameRate = 60;
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
         gtcrn = new GtcrnStreamNew(modelPath);
         microphoneWebGL.dataEvent.AddListener(OnData);
@@ -26,36 +26,16 @@ public class RealTest : MonoBehaviour
 
     }
 
-    /// <summary>
-    /// https://github.com/Xiaobin-Rong/gtcrn/issues/47
-    /// </summary>
-    const int block = 256;
-    float[] temp = new float[block];
-
-    private void FixedUpdate()
-    {
-        if (audioData.Count > block)
-        {
-            for (int i = 0; i < block; i++)
-            {
-                temp[i] = audioData.Dequeue();
-            }
-            orginData.AddRange(temp);
-            float[] enhancedOutput = new float[768];
-            int count = gtcrn.ProcessAudio(temp, temp.Length,out enhancedOutput);
-            if (count > 0)
-            {
-                player.AddData(enhancedOutput);
-                enhData.AddRange(enhancedOutput);
-            }
-        }
-    }
-
+    float[] enhancedOutput = new float[256];
+    int count;
     void OnData(float[] data)
     {
-        for (int i = 0; i < data.Length; i++)
+        orginData.AddRange(data);
+        count = gtcrn.ProcessAudio(data, data.Length, out enhancedOutput);
+        if (count > 0)
         {
-            audioData.Enqueue(data[i]);
+            player.AddData(enhancedOutput);
+            enhData.AddRange(enhancedOutput);
         }
     }
 
