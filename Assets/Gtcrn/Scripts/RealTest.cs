@@ -6,7 +6,7 @@ public class RealTest : MonoBehaviour
 {
     public AudioPlayer player;
     public MicrophoneWebGL microphoneWebGL;
-    GtcrnStream gtcrn;
+    GtcrnStreamNew gtcrn;
     string modelPath;
     Queue<float> audioData = new Queue<float>();
     List<float> orginData = new List<float>();
@@ -16,7 +16,7 @@ public class RealTest : MonoBehaviour
     void Start()
     {
         modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
-        gtcrn = new GtcrnStream(modelPath);
+        gtcrn = new GtcrnStreamNew(modelPath);
         microphoneWebGL.dataEvent.AddListener(OnData);
     }
 
@@ -29,7 +29,7 @@ public class RealTest : MonoBehaviour
     /// <summary>
     /// https://github.com/Xiaobin-Rong/gtcrn/issues/47
     /// </summary>
-    const int block = 512;
+    const int block = 256;
     float[] temp = new float[block];
 
     private void FixedUpdate()
@@ -41,9 +41,13 @@ public class RealTest : MonoBehaviour
                 temp[i] = audioData.Dequeue();
             }
             orginData.AddRange(temp);
-            float[] enh = gtcrn.ProcessFrame(temp);
-            player.AddData(enh);
-            enhData.AddRange(enh);
+            float[] enhancedOutput = new float[768];
+            int count = gtcrn.ProcessAudio(temp, temp.Length,out enhancedOutput);
+            if (count > 0)
+            {
+                player.AddData(enhancedOutput);
+                enhData.AddRange(enhancedOutput);
+            }
         }
     }
 
