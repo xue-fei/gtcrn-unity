@@ -71,7 +71,7 @@ public class Util
         }
     }
 
-    public static void SaveClip(int channels, int frequency, float[] data, string filePath,float valume = 1.0f)
+    public static void SaveClip(int channels, int frequency, float[] data, string filePath, float valume = 1.0f)
     {
         using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
         {
@@ -96,7 +96,7 @@ public class Util
                 writer.Write(data.Length * 2); // 音频数据字节数
                                                // 写入PCM数据（float转为short）
                 foreach (float sample in data)
-                { 
+                {
                     writer.Write((short)(sample * 32767 * valume));
                 }
                 // 返回填充文件总长度
