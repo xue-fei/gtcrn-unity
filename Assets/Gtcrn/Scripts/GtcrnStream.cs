@@ -25,9 +25,9 @@ public class GtcrnStream : IDisposable
 
         // 初始化 ONNX 模型的内部缓存，只执行一次
         // 这些缓存将用于在连续的 ProcessFrame 调用中维护模型状态
-        convCache = new DenseTensor<float>(new[] { 2, 1, 16, 16, 33 });
-        traCache = new DenseTensor<float>(new[] { 2, 3, 1, 1, 16 });
-        interCache = new DenseTensor<float>(new[] { 2, 1, 33, 16 });
+        convCache = new DenseTensor<float>(dimensions: new[] { 2, 1, 16, 16, 33 });
+        traCache = new DenseTensor<float>(dimensions: new[] { 2, 3, 1, 1, 16 });
+        interCache = new DenseTensor<float>(dimensions: new[] { 2, 1, 33, 16 });
 
         // 确保缓存初始值为零，与 Python 参考代码一致
         convCache.Fill(0.0f);
@@ -59,7 +59,7 @@ public class GtcrnStream : IDisposable
         {
             // 为当前 STFT 帧准备 ONNX 输入张量
             // 形状: [批次大小, 频段数, 1, 复数分量 (实部/虚部)]
-            var inputTensor = new DenseTensor<float>(new[] { 1, numBins, 1, 2 });
+            var inputTensor = new DenseTensor<float>(dimensions: new[] { 1, numBins, 1, 2 });
             // 填充输入张量，将复数 STFT 值拆分为实部和虚部
             for (int bin = 0; bin < numBins; bin++)
             {

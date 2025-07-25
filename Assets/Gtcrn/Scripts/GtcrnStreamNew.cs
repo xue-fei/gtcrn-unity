@@ -1,9 +1,10 @@
-using System;
-using System.Linq;
-using System.Numerics;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using UnityEngine;
 
 
 public class GtcrnStreamNew : IDisposable
@@ -44,19 +45,26 @@ public class GtcrnStreamNew : IDisposable
 
     public GtcrnStreamNew(string modelPath)
     {
+        var sessionOptions = new SessionOptions
+        {
+            InterOpNumThreads = Mathf.Max(1, SystemInfo.processorCount / 2),
+            IntraOpNumThreads = Mathf.Max(1, SystemInfo.processorCount / 2),
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
+        };
         // 初始化ONNX会话 
         _onnxSession = new InferenceSession(modelPath);
 
         // 初始化ONNX缓存（与C的缓存形状一致）
-        _convCache = new DenseTensor<float>(new[] { 2, 1, 16, 16, 33 });
-        _traCache = new DenseTensor<float>(new[] { 2, 3, 1, 1, 16 });
-        _interCache = new DenseTensor<float>(new[] { 2, 1, 33, 16 });
+        _convCache = new DenseTensor<float>(dimensions: new[] { 2, 1, 16, 16, 33 });
+        _traCache = new DenseTensor<float>(dimensions: new[] { 2, 3, 1, 1, 16 });
+        _interCache = new DenseTensor<float>(dimensions: new[] { 2, 1, 33, 16 });
         _convCache.Fill(0);
         _traCache.Fill(0);
         _interCache.Fill(0);
 
         // 初始化输入张量列表（动态更新缓存引用）
-        _inputMixTensor = new DenseTensor<float>(new[] { 1, NUM_BINS, 1, 2 });
+        _inputMixTensor = new DenseTensor<float>(dimensions: new[] { 1, NUM_BINS, 1, 2 });
         _inputTensors = new List<NamedOnnxValue>
         {
             NamedOnnxValue.CreateFromTensor("mix", _inputMixTensor),
