@@ -10,6 +10,7 @@ public class RealTest : MonoBehaviour
     string modelPath;
     List<float> orginData = new List<float>();
     List<float> enhData = new List<float>();
+    public bool isEnh = true;
 
     // Start is called before the first frame update
     void Start()
@@ -26,16 +27,28 @@ public class RealTest : MonoBehaviour
 
     }
 
+    private void OnGUI()
+    {
+        isEnh = GUI.Toggle(new Rect(300, 300, 100, 100), isEnh, isEnh ? "降噪开" : "降噪关");
+    }
+
     float[] enhancedOutput = new float[256];
     int count;
     void OnData(float[] data)
     {
         orginData.AddRange(data);
-        count = gtcrn.ProcessAudio(data, data.Length, out enhancedOutput);
-        if (count > 0)
+        if (isEnh)
         {
-            player.AddData(enhancedOutput);
-            enhData.AddRange(enhancedOutput);
+            count = gtcrn.ProcessAudio(data, data.Length, out enhancedOutput);
+            if (count > 0)
+            {
+                player.AddData(enhancedOutput);
+                enhData.AddRange(enhancedOutput);
+            }
+        }
+        else
+        {
+            player.AddData(data);
         }
     }
 
