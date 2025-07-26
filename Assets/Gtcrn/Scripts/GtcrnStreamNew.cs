@@ -95,6 +95,8 @@ public class GtcrnStreamNew : IDisposable
         UnityEngine.Debug.Log("初始化完成");
     }
 
+    float[] stftInput = new float[N_FFT];
+    Complex[] enhSpectrum = new Complex[NUM_BINS];
     /// <summary>
     /// 处理流式音频数据（模仿C的gtcrn_stream_process_audio）
     /// </summary>
@@ -141,14 +143,15 @@ public class GtcrnStreamNew : IDisposable
             }
 
             // 2. 准备STFT输入（overlap + input，共512样本）
-            float[] stftInput = new float[N_FFT];
+
             Array.Copy(_audioBuffer.Overlap.Array, _audioBuffer.Overlap.Offset, stftInput, 0, HOP_LENGTH);
             Array.Copy(_audioBuffer.Input.Array, _audioBuffer.Input.Offset, stftInput, HOP_LENGTH, HOP_LENGTH);
 
             // 应用窗函数
             for (int i = 0; i < WIN_LENGTH; i++)
+            {
                 stftInput[i] *= _window[i];
-
+            }
             // 3. 执行STFT（模仿C的kiss_fftr）
             Complex[] stftResult = STFT(stftInput);
 
@@ -172,18 +175,20 @@ public class GtcrnStreamNew : IDisposable
             _interCache = results.First(r => r.Name == "inter_cache_out").AsTensor<float>().ToDenseTensor();
 
             // 7. 转换增强结果为复数频谱
-            Complex[] enhSpectrum = new Complex[NUM_BINS];
-            for (int bin = 0; bin < NUM_BINS; bin++)
-                enhSpectrum[bin] = new Complex(enhTensor[0, bin, 0, 0], enhTensor[0, bin, 0, 1]);
 
+            for (int bin = 0; bin < NUM_BINS; bin++)
+            {
+                enhSpectrum[bin] = new Complex(enhTensor[0, bin, 0, 0], enhTensor[0, bin, 0, 1]);
+            }
             // 8. 执行ISTFT（模仿C的kiss_fftri）
             float[] istftOutput = ISTFT(enhSpectrum);
 
             // 9. 重叠相加（严格对齐C逻辑）
             // 前256样本叠加到输出
             for (int i = 0; i < HOP_LENGTH; i++)
+            {
                 outputSamples[frameIdx * HOP_LENGTH + i] += istftOutput[i] * _windowDivNfft[i];
-
+            }
             // 非最后一帧：叠加256-512样本到输出
             if (frameIdx < numFrames - 1)
             {
@@ -191,14 +196,18 @@ public class GtcrnStreamNew : IDisposable
                 {
                     int outputPos = frameIdx * HOP_LENGTH + i;
                     if (outputPos < outputSize)
+                    {
                         outputSamples[outputPos] += istftOutput[i] * _windowDivNfft[i];
+                    }
                 }
             }
             // 最后一帧：保存256-512样本作为下次overlap
             else
             {
                 for (int i = 0; i < HOP_LENGTH; i++)
+                {
                     _outFramesHop[i] = istftOutput[HOP_LENGTH + i] * _windowDivNfft[HOP_LENGTH + i];
+                }
             }
 
             // 10. 更新overlap（将当前input移至overlap）
@@ -221,6 +230,7 @@ public class GtcrnStreamNew : IDisposable
         return outputSize;
     }
 
+    Complex[] result = new Complex[NUM_BINS];
     /// <summary>
     /// 执行STFT（模仿C的kiss_fftr）
     /// </summary>
@@ -228,17 +238,19 @@ public class GtcrnStreamNew : IDisposable
     {
         // 填充FFT缓冲区（实部输入）
         for (int i = 0; i < N_FFT; i++)
+        {
             _fftBuffer[i] = new Complex(input[i], 0);
-
+        }
         // 执行FFT
         FFT(_fftBuffer, N_FFT);
 
         // 提取正频率分量（257个频段）
-        Complex[] result = new Complex[NUM_BINS];
+
         Array.Copy(_fftBuffer, result, NUM_BINS);
         return result;
     }
 
+    float[] result2 = new float[N_FFT];
     /// <summary>
     /// 执行ISTFT（模仿C的kiss_fftri）
     /// </summary>
@@ -247,21 +259,24 @@ public class GtcrnStreamNew : IDisposable
         // 填充完整频谱（含负频率共轭）
         Array.Copy(spectrum, _ifftBuffer, NUM_BINS);
         for (int i = 1; i < NUM_BINS - 1; i++)
+        {
             _ifftBuffer[N_FFT - i] = Complex.Conjugate(_ifftBuffer[i]);
-
+        }
         // 奈奎斯特分量强制为实数（C的kiss_fftri要求）
         if (N_FFT % 2 == 0)
+        {
             _ifftBuffer[N_FFT / 2] = new Complex(_ifftBuffer[N_FFT / 2].Real, 0);
-
+        }
         // 执行IFFT
         IFFT(_ifftBuffer, N_FFT);
 
         // 提取实部（C的kiss_fftri输出为实部）
-        float[] result = new float[N_FFT];
-        for (int i = 0; i < N_FFT; i++)
-            result[i] = (float)_ifftBuffer[i].Real;
 
-        return result;
+        for (int i = 0; i < N_FFT; i++)
+        {
+            result2[i] = (float)_ifftBuffer[i].Real;
+        }
+        return result2;
     }
 
     /// <summary>
@@ -288,7 +303,10 @@ public class GtcrnStreamNew : IDisposable
         {
             if (i < j) (buffer[i], buffer[j]) = (buffer[j], buffer[i]);
             int k = length >> 1;
-            while (j >= k) { j -= k; k >>= 1; }
+            while (j >= k)
+            {
+                j -= k; k >>= 1;
+            }
             j += k;
         }
 
@@ -318,12 +336,15 @@ public class GtcrnStreamNew : IDisposable
     {
         // 共轭后FFT等价于IFFT（未缩放，与C一致）
         for (int i = 0; i < length; i++)
+        {
             buffer[i] = Complex.Conjugate(buffer[i]);
-
+        }
         FFT(buffer, length);
 
         for (int i = 0; i < length; i++)
+        {
             buffer[i] = Complex.Conjugate(buffer[i]);
+        }
     }
 
     public void Dispose()

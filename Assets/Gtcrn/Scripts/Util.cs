@@ -105,4 +105,43 @@ public class Util
             }
         }
     }
+
+    public static float[] BytesToFloat(byte[] byteArray)
+    {
+        float[] sounddata = new float[byteArray.Length / 2];
+        for (int i = 0; i < sounddata.Length; i++)
+        {
+            sounddata[i] = BytesToFloat(byteArray[i * 2], byteArray[i * 2 + 1]);
+        }
+        return sounddata;
+    }
+
+    private static float BytesToFloat(byte firstByte, byte secondByte)
+    {
+        //小端和大端顺序要调整
+        short s;
+        if (BitConverter.IsLittleEndian)
+        {
+            s = (short)((secondByte << 8) | firstByte);
+        }
+        else
+        {
+            s = (short)((firstByte << 8) | secondByte);
+        }
+        // convert to range from -1 to (just below) 1
+        return s / 32768.0F;
+    }
+
+    public static byte[] FloatToByte16(float[] floatArray)
+    {
+        byte[] byteArray = new byte[floatArray.Length * 2];
+        int byteIndex = 0;
+        foreach (float sample in floatArray)
+        {
+            short intValue = (short)(Math.Clamp(sample, -1.0f, 1.0f) * short.MaxValue);
+            byteArray[byteIndex++] = (byte)(intValue & 0xFF);
+            byteArray[byteIndex++] = (byte)((intValue >> 8) & 0xFF);
+        }
+        return byteArray;
+    }
 }
