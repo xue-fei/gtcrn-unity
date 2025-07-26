@@ -1,3 +1,4 @@
+using MathNet.Numerics.IntegralTransforms;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
@@ -47,8 +48,9 @@ public class GtcrnStreamNew : IDisposable
     {
         var sessionOptions = new SessionOptions
         {
-            InterOpNumThreads = Mathf.Max(1, SystemInfo.processorCount / 2),
-            IntraOpNumThreads = Mathf.Max(1, SystemInfo.processorCount / 2),
+            // 改为1或与物理核心数一致（避免超线程带来的开销）
+            InterOpNumThreads = 1,
+            IntraOpNumThreads = Mathf.Max(1, SystemInfo.processorCount), // 直接使用核心数而非一半
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
             ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
         };
@@ -97,6 +99,9 @@ public class GtcrnStreamNew : IDisposable
 
     float[] stftInput = new float[N_FFT];
     Complex[] enhSpectrum = new Complex[NUM_BINS];
+    Complex[] stftResult;
+    float[] istftOutput;
+
     /// <summary>
     /// 处理流式音频数据（模仿C的gtcrn_stream_process_audio）
     /// </summary>
@@ -153,7 +158,7 @@ public class GtcrnStreamNew : IDisposable
                 stftInput[i] *= _window[i];
             }
             // 3. 执行STFT（模仿C的kiss_fftr）
-            Complex[] stftResult = STFT(stftInput);
+            stftResult = STFT(stftInput);
 
             // 4. 填充ONNX输入张量（实部+虚部）
             for (int bin = 0; bin < NUM_BINS; bin++)
@@ -181,7 +186,7 @@ public class GtcrnStreamNew : IDisposable
                 enhSpectrum[bin] = new Complex(enhTensor[0, bin, 0, 0], enhTensor[0, bin, 0, 1]);
             }
             // 8. 执行ISTFT（模仿C的kiss_fftri）
-            float[] istftOutput = ISTFT(enhSpectrum);
+            istftOutput = ISTFT(enhSpectrum);
 
             // 9. 重叠相加（严格对齐C逻辑）
             // 前256样本叠加到输出
@@ -297,36 +302,7 @@ public class GtcrnStreamNew : IDisposable
     /// </summary>
     private void FFT(Complex[] buffer, int length)
     {
-        // 位反转
-        int j = 0;
-        for (int i = 0; i < length - 1; i++)
-        {
-            if (i < j) (buffer[i], buffer[j]) = (buffer[j], buffer[i]);
-            int k = length >> 1;
-            while (j >= k)
-            {
-                j -= k; k >>= 1;
-            }
-            j += k;
-        }
-
-        // 蝶形运算
-        for (int len = 2; len <= length; len <<= 1)
-        {
-            Complex wlen = Complex.Exp(-Complex.ImaginaryOne * 2 * Math.PI / len);
-            for (int i = 0; i < length; i += len)
-            {
-                Complex w = Complex.One;
-                for (int k = 0; k < len / 2; k++)
-                {
-                    Complex u = buffer[i + k];
-                    Complex v = buffer[i + k + len / 2] * w;
-                    buffer[i + k] = u + v;
-                    buffer[i + k + len / 2] = u - v;
-                    w *= wlen;
-                }
-            }
-        }
+        Fourier.Forward(buffer, FourierOptions.Matlab); // 与C的kiss_fft对齐
     }
 
     /// <summary>
