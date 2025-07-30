@@ -3,6 +3,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using UnityEngine;
@@ -48,15 +49,15 @@ public class GtcrnStreamNew : IDisposable
     {
         var sessionOptions = new SessionOptions
         {
-            // 改为1或与物理核心数一致（避免超线程带来的开销）
             InterOpNumThreads = 1,
-            IntraOpNumThreads = Mathf.Max(1, SystemInfo.processorCount), // 直接使用核心数而非一半
+            IntraOpNumThreads = 1,
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
+            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL,
+            //EnableProfiling = true,
         };
         // 初始化ONNX会话 
-        _onnxSession = new InferenceSession(modelPath);
-
+        _onnxSession = new InferenceSession(modelPath, sessionOptions);
+         
         // 初始化ONNX缓存（与C的缓存形状一致）
         _convCache = new DenseTensor<float>(dimensions: new[] { 2, 1, 16, 16, 33 });
         _traCache = new DenseTensor<float>(dimensions: new[] { 2, 3, 1, 1, 16 });
@@ -325,6 +326,7 @@ public class GtcrnStreamNew : IDisposable
 
     public void Dispose()
     {
+        //_onnxSession.EndProfiling(); 
         _onnxSession?.Dispose();
         GC.SuppressFinalize(this);
     }
