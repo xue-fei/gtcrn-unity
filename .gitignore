@@ -9,3 +9,4 @@ Assets/StreamingAssets/build_info
 Assets/StreamingAssets/build_info.meta
 *.sln
 *.csproj
+.vscode
