@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "ai.onnxruntime": "https://github.com/xue-fei/onnxruntime-unity.git",
+    "ai.onnxruntime": "https://github.com/xue-fei/onnxruntime-unity-cpu.git",
     "com.github.aliessmael.unitylogsviewer": "https://gitee.com/awnuxcvbn/UnityLogsViewer.git",
     "com.hecomi.umicrophonewebgl": "https://gitee.com/awnuxcvbn/uMicrophoneWebGL.git",
     "com.unity.ide.visualstudio": "2.0.27",

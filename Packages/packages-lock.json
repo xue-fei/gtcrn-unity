@@ -1,11 +1,11 @@
 {
   "dependencies": {
     "ai.onnxruntime": {
-      "version": "https://github.com/xue-fei/onnxruntime-unity.git",
+      "version": "https://github.com/xue-fei/onnxruntime-unity-cpu.git",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "99b49409968ac0bbd9b75efda5a4d6769b87f778"
+      "hash": "bbcfd54a37ea7040984a811f723a04fbd2cf3407"
     },
     "com.github.aliessmael.unitylogsviewer": {
       "version": "https://gitee.com/awnuxcvbn/UnityLogsViewer.git",
