@@ -1,13 +1,18 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using uMicrophoneWebGL;
 using UnityEngine;
+using UnityEngine.Networking;
 
 public class RealTest : MonoBehaviour
 {
     public AudioPlayer player;
     public MicrophoneWebGL microphoneWebGL;
     GtcrnStreamNew gtcrn;
-    string modelPath;
+    string localPath;
+    string sbPath;
     List<float> orginData = new List<float>();
     List<float> enhData = new List<float>();
     public bool isEnh = true;
@@ -16,9 +21,28 @@ public class RealTest : MonoBehaviour
     void Start()
     {
         Application.targetFrameRate = 60;
-        modelPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
-        gtcrn = new GtcrnStreamNew(modelPath);
-        microphoneWebGL.dataEvent.AddListener(OnData);
+
+        localPath = Application.streamingAssetsPath + "/gtcrn_simple.onnx";
+        sbPath = Application.persistentDataPath + "/gtcrn_simple.onnx";
+
+        if (Application.platform == RuntimePlatform.Android
+            || Application.platform == RuntimePlatform.IPhonePlayer)
+        {
+            if (!File.Exists(sbPath))
+            {
+                StartCoroutine(CopyModel(localPath, Application.persistentDataPath));
+            }
+            else
+            {
+                gtcrn = new GtcrnStreamNew(sbPath);
+                microphoneWebGL.dataEvent.AddListener(OnData);
+            }
+        }
+        else
+        {
+            gtcrn = new GtcrnStreamNew(localPath);
+            microphoneWebGL.dataEvent.AddListener(OnData);
+        }
     }
 
     // Update is called once per frame
@@ -49,6 +73,35 @@ public class RealTest : MonoBehaviour
         else
         {
             player.AddData(data);
+        }
+    }
+
+    IEnumerator CopyModel(string sourcePath, string destPath)
+    {
+        using (UnityWebRequest www = UnityWebRequest.Get(sourcePath))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                try
+                {
+                    // 写入文件
+                    File.WriteAllBytes(sbPath, www.downloadHandler.data);
+                    Debug.Log($"复制成功：{sbPath}");
+
+                    gtcrn = new GtcrnStreamNew(sbPath);
+                    microphoneWebGL.dataEvent.AddListener(OnData);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"写入失败：{e.Message}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"读取失败：{www.error}");
+            }
         }
     }
 
